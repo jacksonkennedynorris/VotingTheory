@@ -53,13 +53,14 @@ def k_borda_winners(x_cand, y_cand, x_vote, y_vote, k):
     cand_scores = new_function(x_cand,y_cand,x_vote,y_vote,k,"borda",0)
 
     sorted_permutation = cand_scores.argsort()[:-k-1:-1]
+    
     # Extract those candidates using their indices.
     x_win = x_cand[sorted_permutation]
     y_win = y_cand[sorted_permutation]
 
     return x_win, y_win
 
-def new_function(x_cand,y_cand,x_vote,y_vote,k,system,borda):
+def new_function(x_cand,y_cand,x_vote,y_vote,k,system,candidates):
 
     cand_scores = np.zeros_like(x_cand)
     og_indicies = np.arange(0, len(x_cand))
@@ -85,8 +86,9 @@ def new_function(x_cand,y_cand,x_vote,y_vote,k,system,borda):
             for num in range(k):
                 cand_scores[int(sortable[num][0])] = cand_scores[int(sortable[num][0])] + 1
         elif system == "greedy-cc": 
-            for i in range(len(cand_scores)):
-                cand_scores = np.add(cand_scores, calc_marginals(borda,sortable))
+            cand_scores = np.add(cand_scores,calc_marginals(candidates, sortable))
+            # for i in range(len(cand_scores)):
+            #     cand_scores = np.add(cand_scores, calc_marginals(borda,sortable))
 
     return cand_scores 
 
@@ -94,7 +96,7 @@ def k_approval(x_cand,y_cand,x_vote,y_vote,k):
 
     cand_scores = new_function(x_cand,y_cand,x_vote,y_vote,k,"k-approval",0)
     sorted_permutation = cand_scores.argsort()[:-k-1:-1]
-
+    
     # Extract those candidates using their indices.
     x_win = x_cand[sorted_permutation]
     y_win = y_cand[sorted_permutation]
@@ -105,28 +107,37 @@ def greedy_cc(x_cand,y_cand,x_vote,y_vote,k):
 
     # Get top borda scorer 
     cand_scores = new_function(x_cand,y_cand,x_vote,y_vote,1,"k-borda",0)
-    borda = cand_scores.argmax()
-
-    marginals = new_function(x_cand,y_cand,x_vote,y_vote,k,"greedy-cc",borda)
- 
-    sorted_permutation = marginals.argsort()[:-k:-1]
-    sorted_permutation = np.append(sorted_permutation,borda)
+    borda = cand_scores.argsort()[-1]
+    candidates = [] 
+    candidates.append(borda) 
+    while len(candidates) < k: 
+        cand = new_function(x_cand,y_cand,x_vote,y_vote,k,"greedy-cc",candidates)
+        the = cand.argsort()[-1]
+        candidates.append(the)
+        #print(candidates)
+    assert(len(candidates) == k)
     # Extract those candidates using their indices.
-    x_win = x_cand[sorted_permutation]
-    y_win = y_cand[sorted_permutation]
+    x_win = x_cand[candidates]
+    y_win = y_cand[candidates]
 
     return x_win,y_win
 
-def calc_marginals(borda, sortable): 
+## Returns the top marginal candidate based on the committee
+def calc_marginals(committee, sortable): 
     preference = sortable[:,0].tolist()
-    borda_index = preference.index(borda) 
-    my_dict = []
+    min_index = 101
+    for elem in committee: 
+        top_index = preference.index(elem) 
+
+        if top_index < min_index: 
+            min_index = top_index
+    my_list = []
     for i in range(len(preference)): 
-        my_dict.append(0)
-    for i in range(borda_index): 
+        my_list.append(0)
+    for i in range(min_index): 
         cand = preference[i]
-        my_dict[int(cand)] = my_dict[int(cand)] + borda_index - i
-    return my_dict 
+        my_list[int(cand)] = my_list[int(cand)] + min_index - i
+    return my_list
 
 def main():      
     num_votes = 1000
@@ -139,12 +150,12 @@ def main():
 
     committee_size = 7
     # Compute Borda winners:
-    #x_win, y_win = k_borda_winners(x_cands, y_cands, x_votes, y_votes, committee_size)
+    x_win, y_win = k_borda_winners(x_cands, y_cands, x_votes, y_votes, committee_size)
 
     # # Compute k-approvals: 
-    # x_win, y_win = k_approval(x_cands, y_cands, x_votes, y_votes, committee_size)
+    x_win, y_win = k_approval(x_cands, y_cands, x_votes, y_votes, committee_size)
 
-    # # Compute Greedy Chamberlain Courent 
+    # # Compute Greedy Chamberlain Courant 
     x_win, y_win = greedy_cc(x_cands,y_cands,x_votes,y_votes,committee_size) 
 
     x_win.shape = (-1, 1)
@@ -171,93 +182,3 @@ def main():
 
 main()
 
-
-
-
-    # cand_scores = np.zeros_like(x_cand)
-    # og_indicies = np.arange(0, len(x_cand))
-    # og_indicies.shape = (-1,1)
-
-    # for i in range(len(x_vote)):
-    #     distances = np.zeros_like(x_cand)
-    #     distances.shape = (-1,1)
-    #     for j in range(len(x_cand)):
-    #         # Compute distances
-    #         distances[j] = euclid2d(x_vote[i], y_vote[i], x_cand[j], y_cand[j])
-    #         sortable = np.hstack((og_indicies, distances))
-
-    #     # Sort into preference order
-    #     sortable = sortable[sortable[:,1].argsort()]
-    #     #votes = np.zeros_like()
-    #     num = 0 
-    #     while num < k: 
-    #         cand_scores[int(sortable[num][0])] = cand_scores[int(sortable[num][0])] + 1
-    #         num = num + 1
-
-    
-    # ## Get top Borda scorer 
-    # x_bor,y_bor = k_borda_winners(x_cand, y_cand, x_vote, y_vote, 1) 
-    
-    # cand_scores = np.zeros_like(x_cand)
-    # og_indicies = np.arange(0, len(x_cand))
-    # og_indicies.shape = (-1,1)
-
-    # for i in range(len(x_vote)):
-    #     distances = np.zeros_like(x_cand)
-    #     distances.shape = (-1,1)
-    #     for j in range(len(x_cand)):
-    #         # Compute distances
-    #         distances[j] = euclid2d(x_vote[i], y_vote[i], x_cand[j], y_cand[j])
-    #         sortable = np.hstack((og_indicies, distances))
-            
-    #     # Sort into preference order
-    #     sortable = sortable[sortable[:,1].argsort()]
-    #     # Assign points
-    #     for l in range(len(cand_scores)):
-    #         # Borda:
-    #         cand_scores[int(sortable[l,0])] += len(cand_scores) - l - 1
-
-
-
-
-        # cand_scores = np.zeros_like(x_cand)
-    # og_indicies = np.arange(0, len(x_cand))
-    # og_indicies.shape = (-1,1)
-
-    # for i in range(len(x_vote)):
-    #     distances = np.zeros_like(x_cand)
-    #     distances.shape = (-1,1)
-    #     for j in range(len(x_cand)):
-    #         # Compute distances
-    #         distances[j] = euclid2d(x_vote[i], y_vote[i], x_cand[j], y_cand[j])
-    #         sortable = np.hstack((og_indicies, distances))
-
-    #     # Sort into preference order
-    #     sortable = sortable[sortable[:,1].argsort()]
-
-        # # Assign points
-        # for l in range(len(cand_scores)):
-        #     # Borda:
-        #     cand_scores[int(sortable[l,0])] += len(cand_scores) - l - 1
-
-    # Compute permutation that would sort cand_scores into descending order,
-    # but only the first k elements of it. This returns the indicies of the 
-    # k candidates with the highest borda scores.
-    #sorted_permutation = cand_scores.argsort()[:len(x_cand)-k-1:-1]
-
-       # marginals = np.zeros_like(cand_scores)
-    # for i in range(len(x_vote)):
-    #     distances = np.zeros_like(x_cand)
-    #     distances.shape = (-1,1)
-    #     for j in range(len(x_cand)):
-    #         # Compute distances
-    #         distances[j] = euclid2d(x_vote[i], y_vote[i], x_cand[j], y_cand[j])
-    #         sortable = np.hstack((og_indicies, distances))
-            
-    #     # Sort into preference order
-    #     sortable = sortable[sortable[:,1].argsort()]
-    #     # Assign points
-    #     for l in range(len(cand_scores)):
-    #         marginals = np.add(marginals, calc_marginals(borda,sortable))
-
-    #sorted_permutation = cand_scores.argsort()[:len(x_cand)-k-1:-1]
