@@ -42,25 +42,11 @@ def get_2d_gaussian_mixture_points(N):
 
     return x, y
 
-def k_borda_winners(x_cand, y_cand, x_vote, y_vote, k):
-    '''
-    Returns x_win, y_win; two parallel numpy arrays
-    containing the coordinates of the candidates with 
-    the top Borda scores.
-    '''
-    assert (len(x_cand) == len(y_cand) and len(x_vote) == len(y_vote))
-
-    cand_scores = new_function(x_cand,y_cand,x_vote,y_vote,k,"borda",0)
-
-    sorted_permutation = cand_scores.argsort()[:-k-1:-1]
-    
-    # Extract those candidates using their indices.
-    x_win = x_cand[sorted_permutation]
-    y_win = y_cand[sorted_permutation]
-
-    return x_win, y_win
-
-def new_function(x_cand,y_cand,x_vote,y_vote,k,system,candidates):
+def get_cand_scores(x_cand,y_cand,x_vote,y_vote,k,system,candidates):
+    # This function is adapted from the previous borda function. I wanted a function that would spit out the 
+    # candidate scores rather than their x and y.
+    # "System" is a string of borda, cc, or k-approval. 
+    # Committee is used exclusively for calculating chamberlin-courant. 
 
     cand_scores = np.zeros_like(x_cand)
     og_indicies = np.arange(0, len(x_cand))
@@ -76,25 +62,42 @@ def new_function(x_cand,y_cand,x_vote,y_vote,k,system,candidates):
 
         # Sort into preference order
         sortable = sortable[sortable[:,1].argsort()]
-        #votes = np.zeros_like()
+        
         if system == "borda": 
             # Assign points
             for l in range(len(cand_scores)):
-                # Borda:
                 cand_scores[int(sortable[l,0])] += len(cand_scores) - l - 1
         elif system == "k-approval": 
             for num in range(k):
                 cand_scores[int(sortable[num][0])] = cand_scores[int(sortable[num][0])] + 1
         elif system == "greedy-cc": 
+            # Every time through the loop, add the result from calc_marginals to the cand_scores.
             cand_scores = np.add(cand_scores,calc_marginals(candidates, sortable))
-            # for i in range(len(cand_scores)):
-            #     cand_scores = np.add(cand_scores, calc_marginals(borda,sortable))
 
     return cand_scores 
 
+def k_borda_winners(x_cand, y_cand, x_vote, y_vote, k):
+    '''
+    Returns x_win, y_win; two parallel numpy arrays
+    containing the coordinates of the candidates with 
+    the top Borda scores.
+    '''
+    assert (len(x_cand) == len(y_cand) and len(x_vote) == len(y_vote))
+
+    cand_scores = get_cand_scores(x_cand,y_cand,x_vote,y_vote,k,"borda",0)
+
+    sorted_permutation = cand_scores.argsort()[:-k-1:-1]
+    
+    # Extract those candidates using their indices.
+    x_win = x_cand[sorted_permutation]
+    y_win = y_cand[sorted_permutation]
+
+    return x_win, y_win
+
+
 def k_approval(x_cand,y_cand,x_vote,y_vote,k): 
 
-    cand_scores = new_function(x_cand,y_cand,x_vote,y_vote,k,"k-approval",0)
+    cand_scores = get_cand_scores(x_cand,y_cand,x_vote,y_vote,k,"k-approval",0)
     sorted_permutation = cand_scores.argsort()[:-k-1:-1]
     
     # Extract those candidates using their indices.
@@ -106,49 +109,55 @@ def k_approval(x_cand,y_cand,x_vote,y_vote,k):
 def greedy_cc(x_cand,y_cand,x_vote,y_vote,k): 
 
     # Get top borda scorer 
-    cand_scores = new_function(x_cand,y_cand,x_vote,y_vote,1,"k-borda",0)
+    cand_scores = get_cand_scores(x_cand,y_cand,x_vote,y_vote,1,"k-borda",0)
     borda = cand_scores.argsort()[-1]
     candidates = [] 
     candidates.append(borda) 
+    # Keep looping until we have the total number of candidates that we need
     while len(candidates) < k: 
-        cand = new_function(x_cand,y_cand,x_vote,y_vote,k,"greedy-cc",candidates)
-        the = cand.argsort()[-1]
-        candidates.append(the)
-        #print(candidates)
-    assert(len(candidates) == k)
+        cand = get_cand_scores(x_cand,y_cand,x_vote,y_vote,k,"greedy-cc",candidates)
+        top_marg = cand.argsort()[-1]
+        candidates.append(top_marg)
+    
     # Extract those candidates using their indices.
     x_win = x_cand[candidates]
     y_win = y_cand[candidates]
 
     return x_win,y_win
 
-## Returns the top marginal candidate based on the committee
 def calc_marginals(committee, sortable): 
+    # This function takes the current composition of the committee and computes a list of marginal scores 
+    # based on the committee's current composition. 
+
     preference = sortable[:,0].tolist()
+
+    # Because I want the lowest index of the committee for each ballot, 
+    # I want to start with the index higher than the top candidate. 
     min_index = 101
     for elem in committee: 
         top_index = preference.index(elem) 
-
         if top_index < min_index: 
             min_index = top_index
-    my_list = []
+    marginals = []
     for i in range(len(preference)): 
-        my_list.append(0)
+        marginals.append(0)
     for i in range(min_index): 
         cand = preference[i]
-        my_list[int(cand)] = my_list[int(cand)] + min_index - i
-    return my_list
+        # To calculate the marginals, I am adding on whatever difference there is between a candidate's index 
+        # and the top preference of committee members. 
+        marginals[int(cand)] = marginals[int(cand)] + min_index - i
+    return marginals
 
 def main():      
     num_votes = 1000
     x_votes, y_votes = get_2d_gaussian_points(num_votes)
-    #x_votes, y_votes = get_2d_gaussian_mixture_points(num_votes)
 
     num_cands = int(num_votes/10)
     x_cands, y_cands = get_2d_gaussian_points(num_cands)
-    #x_cands, y_cands = get_2d_gaussian_mixture_points(num_cands)
 
     committee_size = 7
+
+                ## **** COMMENT OUT WHICH TWO YOU DON'T WANT **** ##
     # Compute Borda winners:
     x_win, y_win = k_borda_winners(x_cands, y_cands, x_votes, y_votes, committee_size)
 
@@ -158,6 +167,8 @@ def main():
     # # Compute Greedy Chamberlain Courant 
     x_win, y_win = greedy_cc(x_cands,y_cands,x_votes,y_votes,committee_size) 
 
+
+    # Create plots
     x_win.shape = (-1, 1)
     y_win.shape = (-1, 1)
 
@@ -181,4 +192,3 @@ def main():
     plt.show()
 
 main()
-
