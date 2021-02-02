@@ -13,6 +13,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def euclid2d(x1, y1, x2, y2):
     return np.sqrt((x1-x2)**2 + (y1-y2)**2)
 
@@ -109,7 +110,7 @@ def k_approval(x_cand,y_cand,x_vote,y_vote,k):
 def greedy_cc(x_cand,y_cand,x_vote,y_vote,k): 
 
     # Get top borda scorer 
-    cand_scores = get_cand_scores(x_cand,y_cand,x_vote,y_vote,1,"k-borda",0)
+    cand_scores = get_cand_scores(x_cand,y_cand,x_vote,y_vote,1,"borda",0)
     borda = cand_scores.argsort()[-1]
     candidates = [] 
     candidates.append(borda) 
@@ -133,7 +134,7 @@ def calc_marginals(committee, sortable):
 
     # Because I want the lowest index of the committee for each ballot, 
     # I want to start with the index higher than the top candidate. 
-    min_index = 101
+    min_index = len(preference)
     for elem in committee: 
         top_index = preference.index(elem) 
         if top_index < min_index: 
@@ -159,10 +160,10 @@ def main():
 
                 ## **** COMMENT OUT WHICH TWO YOU DON'T WANT **** ##
     # Compute Borda winners:
-    x_win, y_win = k_borda_winners(x_cands, y_cands, x_votes, y_votes, committee_size)
+    #x_win, y_win = k_borda_winners(x_cands, y_cands, x_votes, y_votes, committee_size)
 
     # # Compute k-approvals: 
-    x_win, y_win = k_approval(x_cands, y_cands, x_votes, y_votes, committee_size)
+    #x_win, y_win = k_approval(x_cands, y_cands, x_votes, y_votes, committee_size)
 
     # # Compute Greedy Chamberlain Courant 
     x_win, y_win = greedy_cc(x_cands,y_cands,x_votes,y_votes,committee_size) 
