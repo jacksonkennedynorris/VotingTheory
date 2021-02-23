@@ -13,6 +13,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+np.random.seed(42)
 
 def euclid2d(x1, y1, x2, y2):
     return np.sqrt((x1-x2)**2 + (y1-y2)**2)
@@ -112,6 +113,7 @@ def greedy_cc(x_cand,y_cand,x_vote,y_vote,k):
     # Get top borda scorer 
     cand_scores = get_cand_scores(x_cand,y_cand,x_vote,y_vote,1,"borda",0)
     borda = cand_scores.argsort()[-1]
+    print(cand_scores)
     candidates = [] 
     candidates.append(borda) 
     # Keep looping until we have the total number of candidates that we need
